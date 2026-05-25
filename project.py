@@ -4,39 +4,22 @@ import numpy as np
 import pickle
 import argparse
 
-
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    '--model',
-    type=str,
-    default='./models/merged_model.pkl',
-    help='Path to the model file',
-)
-parser.add_argument(
-    '--label',
-    type=str,
-    default='./models/merged_label.pkl',
-    help='Path to the label encoder file',
-)
+parser.add_argument('--model', type=str, default='./models/merged_model.pkl')
+parser.add_argument('--label', type=str, default='./models/merged_label.pkl')
 args = parser.parse_args()
 
-# Load saved model and encoder
-model_path = args.model
-label_path = args.label
-
-with open(model_path, 'rb') as f:
+with open(args.model, 'rb') as f:
     model = pickle.load(f)
-
-with open(label_path, 'rb') as f:
+with open(args.label, 'rb') as f:
     le = pickle.load(f)
 
-# MediaPipe setup
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 
 hands = mp_hands.Hands(
     static_image_mode=False,
-    max_num_hands=1,
+    max_num_hands=2,  # Set to 2 so you can play Rock-Paper-Scissors with someone!
     model_complexity=0,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5,
@@ -55,33 +38,50 @@ while cap.isOpened():
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(
-                image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+        for hand_idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
+            mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
             lms = hand_landmarks.landmark
-            wrist_x, wrist_y, wrist_z = lms[0].x, lms[0].y, lms[0].z
-
-            # Landmarks 1-20, interleaved x/y/z, wrist-normalized
-            # Must match extract_landmarks.py exactly
+            
+            # 1. Live Translation
+            wrist_x, wrist_y = lms[0].x, lms[0].y
+            rel_x = np.array([lm.x - wrist_x for lm in lms])
+            rel_y = np.array([lm.y - wrist_y for lm in lms])
+            
+            # 2. Live Scale Normalization
+            scale = np.hypot(rel_x[9], rel_y[9])
+            if scale < 1e-6:
+                continue
+            rel_x /= scale
+            rel_y /= scale
+            
+            # 3. Live Rotation Normalization (Align Middle Finger straight up)
+            angle = np.arctan2(rel_y[9], rel_x[9])
+            rotation_angle = -angle - np.pi / 2
+            cos_a, sin_a = np.cos(rotation_angle), np.sin(rotation_angle)
+            
             features = []
             for i in range(1, 21):
-                features.append(lms[i].x - wrist_x)
-                features.append(lms[i].y - wrist_y)
-                features.append(lms[i].z - wrist_z)
-
+                rot_x = rel_x[i] * cos_a - rel_y[i] * sin_a
+                rot_y = rel_x[i] * sin_a + rel_y[i] * cos_a
+                features.extend([rot_x, rot_y])
+                
             features = np.array(features, dtype=np.float32).reshape(1, -1)
 
-            prediction = model.predict(features)
-            gesture_name = le.inverse_transform(prediction)[0]
+            # Get probability confidence arrays for presentation overlay requirements
+            prob = model.predict_proba(features)[0]
+            pred_class = np.argmax(prob)
+            confidence = prob[pred_class]
+            gesture_name = le.inverse_transform([pred_class])[0]
 
-            cv2.putText(image, f"MOVE: {gesture_name}", (50, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # Stack display markers based on which hand is detected
+            y_offset = 50 + (hand_idx * 40)
+            cv2.putText(image, f"H{hand_idx}: {gesture_name.upper()} ({confidence*100:.1f}%)", 
+                        (50, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
     cv2.imshow('RPS Gesture Detector', image)
-    if cv2.waitKey(5) & 0xFF == 27:  # ESC to quit
+    if cv2.waitKey(5) & 0xFF == 27:
         break
 
 cap.release()
 cv2.destroyAllWindows()
-cv2.waitKey(1)
