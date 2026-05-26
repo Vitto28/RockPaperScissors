@@ -3,6 +3,12 @@ import mediapipe as mp
 import numpy as np
 import pickle
 import argparse
+import time
+
+p1_score = 0
+p2_score = 0
+game_result = "Press SPACE to play"
+is_playing = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default='./models/rps_model.pkl')
@@ -32,6 +38,7 @@ while cap.isOpened():
     if not success:
         break
 
+    key = cv2.waitKey(5) & 0xFF    
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     image.flags.writeable = False
     results = hands.process(image)
@@ -89,10 +96,73 @@ while cap.isOpened():
             confidence = prob[pred_class]
             gesture_name = le.inverse_transform([pred_class])[0]
 
-            # Stack display markers based on which hand is detected
-            y_offset = 50 + (hand_idx * 40)
-            cv2.putText(image, f"H{hand_idx}: {gesture_name.upper()} ({confidence*100:.1f}%)", 
-                        (50, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            # Detects each player based on which side of the screen they are
+            if lms[0].x < 0.5:
+                p1_gesture = gesture_name
+                cv2.putText(image, f"P1 (Left Screen): {p1_gesture.upper()}", (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                cv2.putText(image, f"({confidence*100:.1f}%)", (50, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            else:
+                p2_gesture = gesture_name
+                cv2.putText(image, f"P2 (Right Screen): {p2_gesture.upper()}", (w - 425, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+                cv2.putText(image, f"({confidence*100:.1f}%)", (w - 425, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+
+            # Rectangle encasing each player gesture, displaying it with confidence (changes size accordingly)
+            padding = 20
+            x_pixels = [int(lm.x * w) for lm in lms]
+            y_pixels = [int(lm.y * h) for lm in lms]
+            x_min = max(0, min(x_pixels) - padding)
+            y_min = max(0, min(y_pixels) - padding)
+            x_max = min(w, max(x_pixels) + padding)
+            y_max = min(h, max(y_pixels) + padding)
+            box_color = (0, 255, 0) if lms[0].x < 0.5 else (0, 0, 255)
+            label_text = f"{gesture_name.upper()} ({confidence*100:.1f}%)"
+            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), box_color, 2)
+            cv2.putText(image, label_text, (x_min + 5, y_min - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                
+    # 5. Game Preparation
+    if key == ord(' ') and not is_playing:
+        count_down_start = time.time()
+        is_playing = True
+
+    # Game Logic
+    #After pressing SPACE the countdown begins
+    if is_playing:
+        elapsed = time.time() - count_down_start
+        if elapsed < 1:
+            game_result = "3..." 
+        elif elapsed < 2:
+            game_result = "2..."
+        elif elapsed < 3:
+            game_result = "1..."
+        elif elapsed >= 3 and game_result in {"3...","2...","1...","Get Ready!"}:
+            if 'gesture_name' in locals():
+                p1_choice = p1_gesture
+                p2_choice = p2_gesture
+            else:
+                game_result = "Missing a hand. Try Again!"
+
+            if p1_choice == None or p2_choice == None:
+                game_result = "Missing a hand. Try Again!"
+            elif p1_choice == p2_choice:
+                game_result = "Tie Game!"
+            elif (p1_choice == "rock" and p2_choice == "scissors") or \
+                (p1_choice == "scissors" and p2_choice == "paper") or \
+                (p1_choice == "paper" and p2_choice == "rock"):
+                game_result = "Player 1 Wins!"
+                p1_score += 1
+            else:
+                game_result = "Player 2 Wins!"
+                p2_score += 1
+            is_playing = False
+
+    # Game restarts if SPACE is pressed again
+    if key == ord(' ') and game_result == ("Player 1 Wins!" or "Player 2 Wins!"):
+        is_playing = False
+
+    #Static Markers for Score and Game Status
+    cv2.putText(image, f"Game Status: {game_result}", (w // 2 - 200, h - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+    cv2.putText(image, f"P1 Score: {p1_score}", (50, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+    cv2.putText(image, f"P2 Score: {p2_score}", (w - 425, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
     cv2.imshow('RPS Gesture Detector', image)
     if cv2.waitKey(5) & 0xFF == 27:
