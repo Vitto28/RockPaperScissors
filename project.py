@@ -5,8 +5,8 @@ import pickle
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', type=str, default='./models/merged_model.pkl')
-parser.add_argument('--label', type=str, default='./models/merged_label.pkl')
+parser.add_argument('--model', type=str, default='./models/rps_model.pkl')
+parser.add_argument('--label', type=str, default='./models/rps_label.pkl')
 args = parser.parse_args()
 
 with open(args.model, 'rb') as f:
@@ -37,16 +37,23 @@ while cap.isOpened():
     image.flags.writeable = True
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
+    # get frame dimensions
+    h, w, _ = frame.shape
+
     if results.multi_hand_landmarks:
         for hand_idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
             mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
             lms = hand_landmarks.landmark
-            
+
             # 1. Live Translation
             wrist_x, wrist_y = lms[0].x, lms[0].y
-            rel_x = np.array([lm.x - wrist_x for lm in lms])
-            rel_y = np.array([lm.y - wrist_y for lm in lms])
+            # rel_x = np.array([lm.x - wrist_x for lm in lms])
+            # rel_y = np.array([lm.y - wrist_y for lm in lms])
+            
+            # aspect ratio correction for webcam feed
+            rel_x = np.array([(lm.x - wrist_x) * w for lm in lms])
+            rel_y = np.array([(lm.y - wrist_y) * h for lm in lms])
             
             # 2. Live Scale Normalization
             scale = np.hypot(rel_x[9], rel_y[9])
