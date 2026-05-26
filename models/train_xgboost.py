@@ -14,8 +14,8 @@ from sklearn.metrics import classification_report
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', default='landmarks.csv')
-parser.add_argument('--model_out', default='rps_model.pkl')
-parser.add_argument('--encoder_out', default='label_encoder.pkl')
+parser.add_argument('--model_out', default='./models/rps_model.pkl')
+parser.add_argument('--encoder_out', default='./models/rps_label.pkl')
 args = parser.parse_args()
 
 print(f"Loading {args.input} ...")
@@ -24,6 +24,7 @@ df = pd.read_csv(args.input)
 def augment(df: pd.DataFrame, n_passes: int = 2, noise_level: float = 0.005) -> pd.DataFrame:
     coord_cols = [c for c in df.columns if c != 'label']
     x_cols = [c for c in coord_cols if c.startswith('x')]
+    y_cols = [c for c in coord_cols if c.startswith('y')]
     
     copies = [df]
     
@@ -37,6 +38,22 @@ def augment(df: pd.DataFrame, n_passes: int = 2, noise_level: float = 0.005) -> 
     flipped = df.copy()
     flipped[x_cols] *= -1
     copies.append(flipped)
+    
+    # 3. Small Rotation Augmentation (±10 degrees)
+    # This helps the model handle cases where the middle finger isn't perfectly vertical
+    for angle_deg in [-10, 10]:
+        rotated = df.copy()
+        angle_rad = np.radians(angle_deg)
+        cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+        
+        # We need to rotate each x,y pair
+        for i in range(1, 21):
+            x_col, y_col = f'x{i}', f'y{i}'
+            orig_x = df[x_col].values
+            orig_y = df[y_col].values
+            rotated[x_col] = orig_x * cos_a - orig_y * sin_a
+            rotated[y_col] = orig_x * sin_a + orig_y * cos_a
+        copies.append(rotated)
     
     result = pd.concat(copies, ignore_index=True)
     return result

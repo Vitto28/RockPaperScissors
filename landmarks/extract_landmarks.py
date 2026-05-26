@@ -92,17 +92,19 @@ def collect_images(root: Path) -> list:
     return items
 
 # ── Geometric Normalization Helper ─────────────────────────────────────────────
-def normalize_landmarks_2d(lms) -> Optional[list]:
+def normalize_landmarks_2d(lms, w: int, h: int) -> Optional[list]:
     """
     Translates, scales, and rotates 2D landmarks so that:
     - Wrist (0) is at (0,0)
     - Middle MCP (9) is aligned straight up along the negative Y-axis at a distance of 1.0
+    - Aspect ratio is corrected before normalization.
     """
-    # 1. Translation Normalization
+    # 1. Translation Normalization & Aspect Ratio Correction
     wrist_x, wrist_y = lms[0].x, lms[0].y
     
-    rel_x = np.array([lm.x - wrist_x for lm in lms], dtype=np.float32)
-    rel_y = np.array([lm.y - wrist_y for lm in lms], dtype=np.float32)
+    # Pre-multiply normalized coordinates by pixels to restore Euclidean geometry
+    rel_x = np.array([(lm.x - wrist_x) * w for lm in lms], dtype=np.float32)
+    rel_y = np.array([(lm.y - wrist_y) * h for lm in lms], dtype=np.float32)
     
     # 2. Scale Normalization (using distance from wrist (0) to middle MCP (9))
     scale = np.hypot(rel_x[9], rel_y[9])
@@ -120,10 +122,17 @@ def normalize_landmarks_2d(lms) -> Optional[list]:
     cos_a, sin_a = np.cos(rotation_angle), np.sin(rotation_angle)
     
     features = []
-    for i in range(1, 21):  # Drop wrist (0) as it becomes exactly (0,0)
+    # Interleaved X, Y coordinates for landmarks 1-20
+    for i in range(1, 21):
         rot_x = rel_x[i] * cos_a - rel_y[i] * sin_a
         rot_y = rel_x[i] * sin_a + rel_y[i] * cos_a
         features.extend([rot_x, rot_y])
+    
+    # 4. Feature Engineering: Fingertip Distances (Landmarks 4, 8, 12, 16, 20)
+    # These provide explicit extension signals (Paper vs Scissors)
+    for i in [4, 8, 12, 16, 20]:
+        dist = np.hypot(rel_x[i], rel_y[i])
+        features.append(dist)
         
     return features
 
@@ -131,7 +140,8 @@ def extract_features(image_path: Path) -> Optional[np.ndarray]:
     img_bgr = cv2.imread(str(image_path))
     if img_bgr is None:
         return None
-
+    
+    h, w, _ = img_bgr.shape
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     results = hands.process(img_rgb)
 
@@ -139,7 +149,7 @@ def extract_features(image_path: Path) -> Optional[np.ndarray]:
         return None
 
     lms = results.multi_hand_landmarks[0].landmark
-    norm_features = normalize_landmarks_2d(lms)
+    norm_features = normalize_landmarks_2d(lms, w, h)
     
     return np.array(norm_features, dtype=np.float32) if norm_features is not None else None
 
@@ -166,8 +176,12 @@ def main():
     coord_cols = []
     for i in range(1, 21):
         coord_cols += [f'x{i}', f'y{i}']
+    
+    # Add engineered distance columns
+    dist_cols = [f'd{i}' for i in [4, 8, 12, 16, 20]]
+    cols = ['label'] + coord_cols + dist_cols
 
-    df = pd.DataFrame(rows, columns=['label'] + coord_cols)
+    df = pd.DataFrame(rows, columns=cols)
     print(df['label'].value_counts().to_string())
 
     df.to_csv(args.output, index=False)

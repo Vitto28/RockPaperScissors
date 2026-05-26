@@ -20,7 +20,10 @@ args = parser.parse_args()
 COORD_COLS = []
 for i in range(1, 21):
     COORD_COLS += [f'x{i}', f'y{i}']
-ALL_COLS = ['label'] + COORD_COLS
+
+# Add engineered distance columns
+DIST_COLS = [f'd{i}' for i in [4, 8, 12, 16, 20]]
+ALL_COLS = ['label'] + COORD_COLS + DIST_COLS
 
 print(f"Loading old dataset: {args.old}")
 old = pd.read_csv(args.old)
@@ -35,6 +38,8 @@ interleaved_rows = []
 for _, row in old.iterrows():
     # 1. Translation relative to wrist (0)
     wx, wy = row['x0'], row['y0']
+    
+    # Note: We assume 1:1 aspect ratio for old data since original dimensions are unknown
     rx = np.array([row[f'x{i}'] - wx for i in range(21)])
     ry = np.array([row[f'y{i}'] - wy for i in range(21)])
     
@@ -55,6 +60,11 @@ for _, row in old.iterrows():
         rot_x = rx[i] * cos_a - ry[i] * sin_a
         rot_y = rx[i] * sin_a + ry[i] * cos_a
         coords.extend([rot_x, rot_y])
+    
+    # 4. Feature Engineering: Fingertip Distances
+    for i in [4, 8, 12, 16, 20]:
+        dist = np.hypot(rx[i], ry[i])
+        coords.append(dist)
         
     interleaved_rows.append([row['label']] + coords)
 

@@ -20,7 +20,8 @@ mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(
     static_image_mode=False,
     max_num_hands=2,  # Set to 2 so you can play Rock-Paper-Scissors with someone!
-    model_complexity=0,
+    # model_complexity=0,
+    model_complexity=1, # Use the more accurate model for better results, especially with multiple hands
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5,
 )
@@ -50,7 +51,7 @@ while cap.isOpened():
             wrist_x, wrist_y = lms[0].x, lms[0].y
             # rel_x = np.array([lm.x - wrist_x for lm in lms])
             # rel_y = np.array([lm.y - wrist_y for lm in lms])
-            
+
             # aspect ratio correction for webcam feed
             rel_x = np.array([(lm.x - wrist_x) * w for lm in lms])
             rel_y = np.array([(lm.y - wrist_y) * h for lm in lms])
@@ -72,6 +73,13 @@ while cap.isOpened():
                 rot_x = rel_x[i] * cos_a - rel_y[i] * sin_a
                 rot_y = rel_x[i] * sin_a + rel_y[i] * cos_a
                 features.extend([rot_x, rot_y])
+            
+            # 4. Live Feature Engineering: Fingertip Distances
+            # The goal is to properly distinguish between scissors and paper
+            # The idea is to measure the distance between the fingertips and the wrist. When the hand is open (paper), these distances will be larger, and when the hand is in a fist (rock), they will be smaller. For scissors, we expect some fingers to be extended (index and middle) and others not (ring and pinky, possibly thumb too), resulting in a mixed pattern of distances.
+            for i in [4, 8, 12, 16, 20]:
+                dist = np.hypot(rel_x[i], rel_y[i])
+                features.append(dist)
                 
             features = np.array(features, dtype=np.float32).reshape(1, -1)
 
