@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 import argparse
 import time
+import subprocess
 
 p1_score = 0
 p2_score = 0
@@ -161,12 +162,19 @@ while cap.isOpened():
     if is_playing:
         elapsed = time.time() - count_down_start
         if elapsed < 1:
+            if game_result != "3...":
+                subprocess.Popen(["afplay", "/System/Library/Sounds/Ping.aiff"])
             game_result = "3..." 
         elif elapsed < 2:
+            if game_result != "2...":
+                subprocess.Popen(["afplay", "/System/Library/Sounds/Ping.aiff"])
             game_result = "2..."
         elif elapsed < 3:
+            if game_result != "1...":
+                subprocess.Popen(["afplay", "/System/Library/Sounds/Ping.aiff"])
             game_result = "1..."
         elif elapsed >= 3 and game_result in {"3...","2...","1...","Get Ready!"}:
+            subprocess.Popen(["afplay", "/System/Library/Sounds/Tink.aiff"])
             if 'gesture_name' in locals():
                 p1_choice = p1_gesture
                 p2_choice = p2_gesture
