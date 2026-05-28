@@ -118,7 +118,6 @@ def normalize_landmarks_2d(lms, w: int, h: int) -> Optional[list]:
     # In screen coordinates, up is negative Y. We want joint 9 to be at (0, -1)
     angle = np.arctan2(rel_y[9], rel_x[9])
     rotation_angle = -angle - np.pi / 2
-    
     cos_a, sin_a = np.cos(rotation_angle), np.sin(rotation_angle)
     
     features = []

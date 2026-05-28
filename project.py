@@ -7,8 +7,10 @@ import time
 
 p1_score = 0
 p2_score = 0
-game_result = "Press SPACE to play"
+game_result = "Hold thumbs up to play!"
 is_playing = False
+count_down_start = None
+ready_timer = None
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default='./models/rps_model.pkl')
@@ -48,6 +50,9 @@ while cap.isOpened():
     # get frame dimensions
     h, w, _ = frame.shape
 
+    p1_gesture = None
+    p2_gesture = None
+
     if results.multi_hand_landmarks:
         for hand_idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
             mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -70,10 +75,22 @@ while cap.isOpened():
             rel_x /= scale
             rel_y /= scale
             
-            # 3. Live Rotation Normalization (Align Middle Finger straight up)
-            angle = np.arctan2(rel_y[9], rel_x[9])
-            rotation_angle = -angle - np.pi / 2
-            cos_a, sin_a = np.cos(rotation_angle), np.sin(rotation_angle)
+            # Live Bypass for the thumb shape
+            is_thumb_up_shape = (
+                lms[8].y  > lms[6].y  and  
+                lms[12].y > lms[10].y and  
+                lms[16].y > lms[14].y and  
+                lms[20].y > lms[18].y and  
+                lms[4].y  < lms[5].y       
+            )
+
+            if is_thumb_up_shape:
+                cos_a, sin_a = 1.0, 0.0
+            else:    
+                # 3. Live Rotation Normalization (Align Middle Finger straight up)
+                angle = np.arctan2(rel_y[9], rel_x[9])
+                rotation_angle = -angle - np.pi / 2
+                cos_a, sin_a = np.cos(rotation_angle), np.sin(rotation_angle)
             
             features = []
             for i in range(1, 21):
@@ -97,13 +114,15 @@ while cap.isOpened():
             gesture_name = le.inverse_transform([pred_class])[0]
 
             # Detects each player based on which side of the screen they are
+            assigned_gesture = "thumbs_up" if gesture_name in ["ok", "thumbs_up"] else gesture_name
+
             if lms[0].x < 0.5:
-                p1_gesture = gesture_name
-                cv2.putText(image, f"P1 (Left Screen): {p1_gesture.upper()}", (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                p1_gesture = assigned_gesture
+                cv2.putText(image, f"P1: {p1_gesture.upper()}", (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                 cv2.putText(image, f"({confidence*100:.1f}%)", (50, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
             else:
-                p2_gesture = gesture_name
-                cv2.putText(image, f"P2 (Right Screen): {p2_gesture.upper()}", (w - 425, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+                p2_gesture = assigned_gesture
+                cv2.putText(image, f"P2: {p2_gesture.upper()}", (w - 425, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
                 cv2.putText(image, f"({confidence*100:.1f}%)", (w - 425, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
             # Rectangle encasing each player gesture, displaying it with confidence (changes size accordingly)
@@ -119,10 +138,23 @@ while cap.isOpened():
             cv2.rectangle(image, (x_min, y_min), (x_max, y_max), box_color, 2)
             cv2.putText(image, label_text, (x_min + 5, y_min - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
-    # 5. Game Preparation
-    if key == ord(' ') and not is_playing:
-        count_down_start = time.time()
-        is_playing = True
+    # 5. Game Preparation (waits for both players' thumbs up)
+        if not is_playing and (p1_gesture == 'thumbs_up' and p2_gesture == 'thumbs_up'):
+            if ready_timer == None:
+                ready_timer = time.time()
+            else:
+                time_held = time.time() - ready_timer
+                game_result = f"Hold thumbs to start round {int((1.0 - time_held) * 1000)}ms"
+                if time_held >= 0.5:
+                    count_down_start = time.time()
+                    is_playing = True
+                    game_result = 'Get Ready!'
+                    ready_timer = None
+        else:
+            if not is_playing:
+                ready_timer = None
+                if game_result in [None, 'Get Ready!', 'Hold thumbs up to play!'] or 'Hold' in game_result:
+                    game_result = 'Keep thumbs up to start!'
 
     # Game Logic
     #After pressing SPACE the countdown begins

@@ -13,9 +13,9 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input', default='landmarks.csv')
-parser.add_argument('--model_out', default='./models/rps_model.pkl')
-parser.add_argument('--encoder_out', default='./models/rps_label.pkl')
+parser.add_argument('--input', default='../landmarks/merged_landmarks.csv')
+parser.add_argument('--model_out', default='./rps_model.pkl')
+parser.add_argument('--encoder_out', default='./rps_label.pkl')
 args = parser.parse_args()
 
 print(f"Loading {args.input} ...")

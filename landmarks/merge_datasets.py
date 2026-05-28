@@ -29,8 +29,8 @@ print(f"Loading old dataset: {args.old}")
 old = pd.read_csv(args.old)
 
 # Drop thumbs_up and remap labels
-old = old[old['label'] != 'thumbs_up'].copy()
-label_map = {'close_palm': 'rock', 'open_palm': 'paper', 'peace': 'scissors'}
+#old = old[old['label'] != 'thumbs_up'].copy()
+label_map = {'close_palm': 'rock', 'open_palm': 'paper', 'peace': 'scissors', 'thumbs_up' : 'ok'}
 old['label'] = old['label'].map(label_map)
 old = old.dropna(subset=['label'])
 
@@ -51,9 +51,12 @@ for _, row in old.iterrows():
     ry /= scale
     
     # 3. Rotation alignment (Middle MCP points straight up)
-    angle = np.arctan2(ry[9], rx[9])
-    rotation_angle = -angle - np.pi / 2
-    cos_a, sin_a = np.cos(rotation_angle), np.sin(rotation_angle)
+    if row['label'] == 'ok':
+        cos_a, sin_a = 1.0, 0.0
+    else :
+        angle = np.arctan2(ry[9], rx[9])
+        rotation_angle = -angle - np.pi / 2
+        cos_a, sin_a = np.cos(rotation_angle), np.sin(rotation_angle)
     
     coords = []
     for i in range(1, 21):
