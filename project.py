@@ -200,10 +200,12 @@ while cap.isOpened():
         is_playing = False
 
     #Static Markers for Score and Game Status
+    cv2.rectangle(image, (w // 2 + 400, h - 50), (w // 2 - 300, h + 30), 0, -1)
+    cv2.rectangle(image, (40,10),(250, 50), 0, -1)
+    cv2.rectangle(image, (w- 425 + 40,10),(w - 425 + 250, 50), 0, -1)
     cv2.putText(image, f"Game Status: {game_result}", (w // 2 - 200, h - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
     cv2.putText(image, f"P1 Score: {p1_score}", (50, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-    cv2.putText(image, f"P2 Score: {p2_score}", (w - 425, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-
+    cv2.putText(image, f"P2 Score: {p2_score}", (w - 375, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
     cv2.imshow('RPS Gesture Detector', image)
     if cv2.waitKey(5) & 0xFF == 27:
         break
