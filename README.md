@@ -11,6 +11,15 @@ You may want to use the `pip install -r requirements.txt` command to install all
 
 > **Important**: for all the packages to work properly, you need to run the code with **Python 3.9**. We recommend using a virtual environment to manage the dependencies and avoid conflicts with other projects.
 
+### Real-time tracker and game demo
+To run the real-time tracker integrated with the rock-paper-scissors game, simply execute the `project.py` file. This will open a window with the camera feed, where you can play against another player. You will be assigned a player number (Player 1 or Player 2) depending on which side of the camera you are on. The game will keep track of the score and display it on the screen.
+
+To begin a round, both players should hold the "thumbs-up" gesture in front of the camera for a few seconds to signal that they are ready. When the round starts, the players have three seconds (indicated both on the screen and via a sound cue) to show their gesture (rock, paper, or scissors) in front of the camera. The system will then detect the gestures, determine the winner of the round, and update the score accordingly. The game will continue indefinitly until you close the window, which you may do by pressing the `escape` key.
+
+The tracker draws a bounding box around the detected hand and displays the predicted gesture label on the screen along with a confidence score. 
+
+> **Note**: the game logic expects two players (i.e., two hands) to be detected in each round. Thus, having more than two hands in the camera feed (either the players' other hands, or the hands of other people in the feed) may cause unexpected behavior. We recommend ensuring that only the two players' playing hands are visible in the camera feed for the best experience.
+
 ### Model pipeline
 You can find the pre-trained model and the label encoder in the "model" folder (`rps_model.pkl` and `rps_label`, respectively). However, if you want to train the model on your own dataset, you may run `extract_landmarks.py` to extract the hand landmarks from **labeled images** of the gestures you want to recognize, and then run `train_xgboost.py` to train the model on the extracted landmarks.
 
