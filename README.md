@@ -9,7 +9,15 @@ The project is comprised of 2 parts: the model pipeline and the real-time tracke
 ## Installation and usage
 You may want to use the `pip install -r requirements.txt` command to install all the packages you require with their versions.
 
-**Important**: for all the packages to work properly, you need to run the code with **Python 3.9**. We recommend using a virtual environment to manage the dependencies and avoid conflicts with other projects.
+> **Important**: for all the packages to work properly, you need to run the code with **Python 3.9**. We recommend using a virtual environment to manage the dependencies and avoid conflicts with other projects.
+
+### Model pipeline
+You can find the pre-trained model and the label encoder in the "model" folder (`rps_model.pkl` and `rps_label`, respectively). However, if you want to train the model on your own dataset, you may run `extract_landmarks.py` to extract the hand landmarks from **labeled images** of the gestures you want to recognize, and then run `train_xgboost.py` to train the model on the extracted landmarks.
+
+> **Note**: you *may* run the game-integrated tracker with your own model, but it expects a set of specific gestures (rock, paper, scissors and thumbs up) to work properly. If you want to use it with a different set of gestures, you will need to modify the code accordingly.
+
+
+
 
 <!-- We remind you of the "requirements.txt" file with all the necessary programs and relative versions we used to run all the code  -->
 
