@@ -4,10 +4,10 @@ This project's goal is building a computer vision system capable of recognizing 
 
 As a proof-of-concept, the system is integrated into a game of **rock-paper-scissors**, where it detects each player's gesture and determines the outcome of each round. However, the underlying technology can be extended to recognize a wide range of hand signs, making it applicable for various applications such as sign language interpretation, human-computer interaction, and more.
 
-The project is comprised of 2 parts: the model and the tracker (the latter serves also as demo)
+The project is comprised of 2 parts: the model pipeline and the real-time tracker integrated within the game (the latter serves also as demo)
 
 ## Installation and usage
-You may want to use the `pip install -r requirements.txt` command to install all the packages you can use with their versions.
+You may want to use the `pip install -r requirements.txt` command to install all the packages you require with their versions.
 
 **Important**: for all the packages to work properly, you need to run the code with **Python 3.9**. We recommend using a virtual environment to manage the dependencies and avoid conflicts with other projects.
 
